@@ -16,18 +16,6 @@ const configs = {
         bin: path.join(programFiles, 'Google', 'Chrome', 'Application', 'chrome.exe'),
         userData: path.join(localAppData, 'Google', 'Chrome', 'User Data')
     },
-    "edge": {
-        bin: path.join(programFilesX86, 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
-        userData: path.join(localAppData, 'Microsoft', 'Edge', 'User Data')
-    },
-    "brave": {
-        bin: path.join(programFiles, 'BraveSoftware', 'Brave-Browser', 'Application', 'brave.exe'),
-        userData: path.join(localAppData, 'BraveSoftware', 'Brave-Browser', 'User Data')
-    },
-    "opera": {
-        bin: path.join(localAppData, 'Programs', "Opera", 'opera.exe'),
-        userData: path.join(appData, 'Opera Software', 'Opera Stable')
-    },
 };
 
 async function startBrowser() {
@@ -93,9 +81,25 @@ async function saveCookiesToFile(cookies) {
     fs.writeFileSync(filePath, cookieData);
 }
 
+async function killChrome() {
+    return new Promise((resolve) => {
+        const kill = spawn('taskkill', ['/F', '/IM', 'chrome.exe'], { shell: true });
+        kill.on('close', () => {
+            console.log('Chrome kapatıldı');
+            // Chrome'un tamamen kapanması için 2 saniye bekleyelim
+            setTimeout(resolve, 2000);
+        });
+    });
+}
+
 async function main() {
     try {
+        await killChrome();
+        
         const browserProcess = await startBrowser();
+        // Chrome'un başlaması için 3 saniye bekleyelim
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
         const wsUrl = await getDebugWsUrl();
         if (!wsUrl) {
             console.log('Failed to connect to browser debug URL');
@@ -103,7 +107,9 @@ async function main() {
         }
         const cookies = await getCookies(wsUrl);
         await saveCookiesToFile(cookies);
-        browserProcess.kill();
+        
+        // Browser process'i kapatmak yerine killChrome() kullanarak tüm Chrome işlemlerini kapatalım
+        await killChrome();
     } catch (error) {
         console.error('Error:', error);
     }
